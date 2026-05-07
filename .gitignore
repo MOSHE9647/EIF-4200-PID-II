@@ -1,16 +1,11 @@
 # IDE
 .vscode/
 .idea/
-
-# .gitignore
 __pycache__/
 *.pyc
 .env
 venv/
 env/
-
-# Excluir credenciales y configuraciones sensibles
-src/config.py
 
 # Excluir las imágenes y base de datos local
 data/known_faces/*
