@@ -1,100 +1,145 @@
-# EIF-4200-PID-II
+# EIF-4200 PID II - Sistema Facial
 
-## Requisitos previos
+Proyecto practico para control de acceso con reconocimiento facial, MySQL y cifrado de datos sensibles.
 
-- [Anaconda](https://www.anaconda.com/download) instalado
-- Visual Studio Code instalado
-- Extensión **Python** de Microsoft instalada en VS Code
-
----
-
-## 1. Crear el ambiente conda 
-
-Abre una terminal y ejecuta:
-
-```powershell
-conda create -n Caralaboratorio(reemplazar por el nombre del ambiente) python=3.13.13```
-
----
-
-## activar en anaconda 
-
-conda activate Caralaboratorio(reemplazar por el nombre del ambiente)
+## Estado actual
 
 
-## 2. Seleccionar el intérprete en VS Code
+- `src/database.py`: conexion a MySQL, creacion de tablas, registro de empleados, registro de accesos y cifrado/descifrado de nombres con `cryptography.Fernet`.
+- `src/detector.py`: motor de reconocimiento facial. Carga rostros desde `data/known_faces`, compara contra el video o una imagen, dibuja cuadros verdes/rojos y registra eventos en la base de datos cuando recibe un `DatabaseManager`.
+- `src/utils.py`: funciones auxiliares para rutas, lectura de imagenes, extraccion del codigo de empleado y captura de rostros desconocidos.
+- `config.py`: credenciales de base de datos, correo y rutas principales.
 
-1. Presiona `Ctrl+Shift+P`
-2. Escribe **Python: Select Interpreter**
-3. Selecciona el ambiente `conda: Caralaboratorio`
 
-Si no aparece en la lista, elige **Enter interpreter path...** y navega a:
+## Instalacion
 
-```
-C:\Users\<tu_usuario>\anaconda3\envs\Caralaboratorio\python.exe
-```
-
-## 2. Activar el ambiente en visual studio code
-
-Si `conda` no se reconoce en PowerShell, usa el hook de Anaconda directamente:
+### 1. Crear ambiente
 
 ```powershell
-(C:\Users\<tu_usuario>\anaconda3\shell\condabin\conda-hook.ps1) ; conda activate Caralaboratorio(cambiar por el nombre del ambiente )
+conda create -n facial_pid python=3.13
+conda activate facial_pid
 ```
 
-> Reemplaza `<tu_usuario>` con tu nombre de usuario de Windows.
+Si VS Code no activa conda en PowerShell, selecciona el interprete con:
 
-El prompt debe cambiar a en visual:
+1. `Ctrl+Shift+P`
+2. `Python: Select Interpreter`
+3. Selecciona el ambiente `facial_pid`
 
-```
-(Caralaboratorio) PS C:\PROYECTO_LABORATORIO\EIF-4200-PID-II>
-```
-
----
-
-## 3. Instalar los paquetes
-
-Con el ambiente activo:
+### 2. Instalar dependencias
 
 ```powershell
-pip install mysql-connector-python cryptography
+pip install -r requirements.txt
 ```
 
-Para verificar que se instalaron correctamente:
+Nota: `face_recognition` puede requerir herramientas de compilacion en Windows porque depende de `dlib`. Si falla, una opcion practica es instalarlo desde conda-forge:
 
 ```powershell
-pip list | Select-String -Pattern "mysql|cryptography"
+conda install -c conda-forge dlib face_recognition
+pip install mysql-connector-python cryptography opencv-python
 ```
 
-Debe mostrar algo como:
+### 3. Preparar carpetas
 
+El proyecto espera esta estructura:
+
+```text
+data/
+  known_faces/    # Fotos de empleados autorizados
+  unknown_faces/  # Capturas de personas no reconocidas
+src/
+  database.py
+  detector.py
+  gui.py
+  notification.py
+  utils.py
+main.py
+config.py
+secret.key
 ```
-cryptography               47.0.0
-mysql-connector-python     9.7.0
+
+Las fotos autorizadas deben guardarse en `data/known_faces/` usando el codigo de empleado al inicio del nombre:
+
+```text
+EMP001.jpg
+EMP002_maria.jpg
+EMP003-carlos.jpg
 ```
 
-revisar que se instalaron correctamente cambiar los datos por su ruta:
+El detector toma `EMP001`, `EMP002` o `EMP003` como codigo y lo consulta en MySQL.
 
-C:/Users/keyna/anaconda3/envs/TareaBusquedaHeuristica/python.exe -c "import mysql.connector; import cryptography; print(' Dependencias OK')"
+## Base de datos
 
+El archivo `config.py` contiene la configuracion de MySQL. Antes de probar, revisa:
 
----
+```python
+DB_CONFIG = {
+    "host": "...",
+    "user": "...",
+    "password": "...",
+    "database": "...",
+    "port": 3307,
+}
+```
 
-## 5. Ejecutar el script
+Para crear tablas y cargar datos de prueba:
 
-```powershell esto hace datos de prueba
+```powershell
 python src/database.py
 ```
 
----
+`secret.key` es la clave local usada para cifrar y descifrar nombres. No se debe borrar ni compartir. Si se borra despues de insertar empleados, los nombres cifrados existentes ya no se podran descifrar.
 
-## Notas importantes
+## Probar solo el motor de reconocimiento
 
-- El archivo `secret.key` se genera automáticamente la primera vez que se ejecuta el script. **No lo elimines** ni lo compartas — es la clave de cifrado de los datos en la base de datos.
-- Si borras `secret.key` y la base de datos ya tiene datos cifrados, los nombres de los empleados no podrán descifrarse. En ese caso deberás limpiar las tablas y volver a insertar los datos.
+Ejemplo rapido desde una terminal Python:
 
+```python
+from src.detector import FaceRecognitionEngine
 
-para usar para registrar un nuevo empleado
+engine = FaceRecognitionEngine(auto_load=True)
+print(engine.known_codes)
+```
+
+Para probar contra una imagen:
+
+```python
+from src.detector import FaceRecognitionEngine
+
+engine = FaceRecognitionEngine()
+matches = engine.recognize_image("ruta/a/imagen.jpg")
+for match in matches:
+    print(match)
+```
+
+Para integrarlo con base de datos:
+
+```python
+from src.database import DatabaseManager
+from src.detector import FaceRecognitionEngine
+
 db = DatabaseManager()
 db.connect()
-db.registrar_nuevo_empleado("Nombre", "EMP004", "ruta/imagen.jpg")
+engine = FaceRecognitionEngine(db_manager=db)
+```
+
+Cuando la GUI entregue frames de OpenCV, debe llamar:
+
+```python
+frame_anotado, resultados = engine.process_frame(frame_bgr)
+```
+
+## Privacidad
+
+- Los nombres se cifran antes de guardarse en `tb_empleado.nombre`.
+- La aplicacion descifra el nombre solo cuando necesita mostrarlo.
+- La clave `secret.key` queda fuera de la base de datos.
+- Las capturas de desconocidos se guardan en `data/unknown_faces/` con nombres generados por fecha y hora.
+
+## Siguiente paso de integracion
+
+Cuando tus companeros tengan GUI y alertas, deben conectar:
+
+- GUI -> `FaceRecognitionEngine.process_frame(frame_bgr)`
+- Alertas -> usar `FaceMatch.autorizado == False` y `FaceMatch.evidence_path`
+- Panel lateral -> `DatabaseManager.obtener_ultimos_registros()`
