@@ -1,0 +1,14 @@
+# IDE
+.vscode/
+.idea/
+__pycache__/
+*.pyc
+.env
+venv/
+env/
+
+# Excluir las imágenes y base de datos local
+data/known_faces/*
+data/unknown_faces/*
+!data/known_faces/.gitkeep
+!data/unknown_faces/.gitkeep

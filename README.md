@@ -1,47 +1,69 @@
-# EIF-4200 PID II - Sistema Facial
+# EIF-4200 PID II - Sistema Avanzado de Identificacion Facial
 
-Proyecto practico para control de acceso con reconocimiento facial, MySQL y cifrado de datos sensibles.
+Proyecto practico para control de acceso con reconocimiento facial, MySQL, interfaz grafica y cifrado de datos sensibles.
 
-## Estado actual
+## Estado Actual
 
+Ya existe:
 
 - `src/database.py`: conexion a MySQL, creacion de tablas, registro de empleados, registro de accesos y cifrado/descifrado de nombres con `cryptography.Fernet`.
-- `src/detector.py`: motor de reconocimiento facial. Carga rostros desde `data/known_faces`, compara contra el video o una imagen, dibuja cuadros verdes/rojos y registra eventos en la base de datos cuando recibe un `DatabaseManager`.
+- `src/detector.py`: motor de reconocimiento facial. Carga rostros desde `data/known_faces`, compara contra video o imagen, dibuja cuadros verdes/rojos y registra eventos en la base de datos cuando recibe un `DatabaseManager`.
 - `src/utils.py`: funciones auxiliares para rutas, lectura de imagenes, extraccion del codigo de empleado y captura de rostros desconocidos.
+- `src/gui.py`: interfaz grafica y visualizacion del flujo de video.
 - `config.py`: credenciales de base de datos, correo y rutas principales.
 
+Pendiente de integracion final:
 
-## Instalacion
+- Alertas sonoras y correo critico.
+- Conexion completa entre GUI, motor facial, base de datos y notificaciones.
 
-### 1. Crear ambiente
+## 1. Crear Ambiente Conda
+
+Abre Anaconda Prompt o PowerShell y ejecuta:
 
 ```powershell
-conda create -n facial_pid python=3.13
-conda activate facial_pid
+conda create -n PIDII_FACE python=3.10
+conda activate PIDII_FACE
 ```
 
-Si VS Code no activa conda en PowerShell, selecciona el interprete con:
+Se recomienda Python 3.10 para evitar problemas de compatibilidad entre `dlib`, `face_recognition` y Windows.
 
-1. `Ctrl+Shift+P`
-2. `Python: Select Interpreter`
-3. Selecciona el ambiente `facial_pid`
+## 2. Seleccionar Interprete en VS Code
 
-### 2. Instalar dependencias
+1. Presiona `Ctrl+Shift+P`.
+2. Busca `Python: Select Interpreter`.
+3. Selecciona el ambiente `PIDII_FACE`.
+
+Si no aparece, usa:
+
+```text
+C:\Anaconda\envs\PIDII_FACE\python.exe
+```
+
+## 3. Instalar Dependencias
+
+Desde la carpeta raiz del proyecto:
 
 ```powershell
 pip install -r requirements.txt
 ```
 
-Nota: `face_recognition` puede requerir herramientas de compilacion en Windows porque depende de `dlib`. Si falla, una opcion practica es instalarlo desde conda-forge:
+Si `face_recognition` o `dlib` falla en Windows, instala primero desde conda-forge:
 
 ```powershell
 conda install -c conda-forge dlib face_recognition
-pip install mysql-connector-python cryptography opencv-python
+pip install -r requirements.txt
 ```
 
-### 3. Preparar carpetas
+Verificacion:
 
-El proyecto espera esta estructura:
+```powershell
+python -c "import cv2; import face_recognition; import mysql.connector; import cryptography; print('Dependencias OK')"
+```
+
+## 4. Preparar Carpetas
+
+Estructura esperada:
 
 ```text
 data/
@@ -68,9 +90,9 @@ EMP003-carlos.jpg
 
 El detector toma `EMP001`, `EMP002` o `EMP003` como codigo y lo consulta en MySQL.
 
-## Base de datos
+## 5. Base de Datos
 
-El archivo `config.py` contiene la configuracion de MySQL. Antes de probar, revisa:
+El archivo `config.py` contiene la configuracion de MySQL:
 
 ```python
 DB_CONFIG = {
@@ -88,20 +110,21 @@ Para crear tablas y cargar datos de prueba:
 python src/database.py
 ```
 
-`secret.key` es la clave local usada para cifrar y descifrar nombres. No se debe borrar ni compartir. Si se borra despues de insertar empleados, los nombres cifrados existentes ya no se podran descifrar.
+Para probar un empleado especifico:
 
-## Probar solo el motor de reconocimiento
-
-Ejemplo rapido desde una terminal Python:
-
-```python
-from src.detector import FaceRecognitionEngine
-
-engine = FaceRecognitionEngine(auto_load=True)
-print(engine.known_codes)
+```powershell
+python src/database.py EMP002
 ```
 
-Para probar contra una imagen:
+## 6. Probar Motor de Reconocimiento
+
+Ver codigos cargados desde `data/known_faces`:
+
+```powershell
+python -c "from src.detector import FaceRecognitionEngine; engine=FaceRecognitionEngine(); print(engine.known_codes)"
+```
+
+Probar contra una imagen:
 
 ```python
 from src.detector import FaceRecognitionEngine
@@ -112,7 +135,7 @@ for match in matches:
     print(match)
 ```
 
-Para integrarlo con base de datos:
+Integracion con base de datos:
 
 ```python
 from src.database import DatabaseManager
@@ -134,12 +157,6 @@ frame_anotado, resultados = engine.process_frame(frame_bgr)
 - Los nombres se cifran antes de guardarse en `tb_empleado.nombre`.
 - La aplicacion descifra el nombre solo cuando necesita mostrarlo.
 - La clave `secret.key` queda fuera de la base de datos.
-- Las capturas de desconocidos se guardan en `data/unknown_faces/` con nombres generados por fecha y hora.
-
-## Siguiente paso de integracion
-
-Cuando tus companeros tengan GUI y alertas, deben conectar:
-
-- GUI -> `FaceRecognitionEngine.process_frame(frame_bgr)`
-- Alertas -> usar `FaceMatch.autorizado == False` y `FaceMatch.evidence_path`
-- Panel lateral -> `DatabaseManager.obtener_ultimos_registros()`
+- No borres ni compartas `secret.key`.
+- Si se pierde `secret.key`, los nombres ya guardados no se podran descifrar.
+- Las capturas de desconocidos se guardan en `data/unknown_faces/` con nombre generado por fecha y hora.

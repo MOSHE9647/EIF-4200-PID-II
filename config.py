@@ -3,7 +3,6 @@
 import os
 from cryptography.fernet import Fernet
 
-
 DB_CONFIG = {
     'host': 'tebnhf.h.filess.io',
     'user': 'bdPIDII_wrongpiece',         
