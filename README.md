@@ -10,11 +10,12 @@ Ya existe:
 - `src/detector.py`: motor de reconocimiento facial. Carga rostros desde `data/known_faces`, compara contra video o imagen, dibuja cuadros verdes/rojos y registra eventos en la base de datos cuando recibe un `DatabaseManager`.
 - `src/utils.py`: funciones auxiliares para rutas, lectura de imagenes, extraccion del codigo de empleado y captura de rostros desconocidos.
 - `src/gui.py`: interfaz grafica y visualizacion del flujo de video.
+- `src/notification.py`: sistema de alertas criticas por correo con captura de rostro.
 - `config.py`: credenciales de base de datos, correo y rutas principales.
+- **Protocolo de Alerta Crítica**: Alertas sonoras (Windows) y correo automático con captura ante intrusión.
 
 Pendiente de integracion final:
 
-- Alertas sonoras y correo critico.
 - Conexion completa entre GUI, motor facial, base de datos y notificaciones.
 
 ## 1. Crear Ambiente Conda
@@ -116,7 +117,39 @@ Para probar un empleado especifico:
 python src/database.py EMP002
 ```
 
-## 6. Probar Motor de Reconocimiento
+## 6. Protocolo de Alerta de Seguridad Crítica
+
+Cuando se detecta una **persona no autorizada** en el video, el sistema activa un protocolo de alerta en dos canales:
+
+### Alerta Sonora
+- Se emite un **sonido de alerta** (1000 Hz por 500ms) en tiempo real
+- Solo disponible en **Windows** (mediante `winsound`)
+- Notifica al operador de forma inmediata
+
+### Alerta por Correo Crítico
+- Se envía automáticamente un correo a la dirección configurada en `config.py`
+- Incluye:
+  - **Asunto**: `ALERTA CRÍTICA: Acceso No Autorizado - [timestamp]`
+  - **Captura del rostro** detectado como intruso
+  - **Fecha y hora** del evento
+  - **Detalles** del evento
+- Se ejecuta en un **hilo separado** para no bloquear la interfaz gráfica
+
+### Configuración Requerida
+
+En `config.py`, asegúrate de completar:
+
+```python
+EMAIL_CONFIG = {
+    'smtp_server': 'sandbox.smtp.mailtrap.io',  # Servidor SMTP
+    'smtp_port': 2525,                           # Puerto SMTP
+    'sender_email': 'tu_email',                  # Usuario SMTP
+    'sender_password': 'tu_contraseña',         # Contraseña SMTP
+    'security_email': 'alerta@empresa.com'      # Correo de destino
+}
+```
+
+## 7. Probar Motor de Reconocimiento
 
 Ver codigos cargados desde `data/known_faces`:
 

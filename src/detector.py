@@ -17,6 +17,12 @@ except ImportError:
     }
 
 from src.utils import employee_code_from_image_path, iter_image_files, save_unknown_face
+try:
+    import winsound
+except ImportError:
+    winsound = None
+
+from src.notification import send_security_alert
 
 
 @dataclass
@@ -188,6 +194,16 @@ class FaceRecognitionEngine:
             evidence_path = save_unknown_face(frame_bgr, location, self.unknown_faces_dir)
             if self.db_manager is not None:
                 self.db_manager.registrar_acceso(None, "NO_AUTORIZADO", label)
+            
+            # Alerta Sonora (Windows)
+            if winsound:
+                # Frecuencia 1000Hz, duración 500ms
+                winsound.Beep(1000, 500)
+            
+            # Notificación Crítica por Correo
+            if evidence_path:
+                send_security_alert(evidence_path, label)
+                
             self._remember_log("unknown")
 
         return FaceMatch(
