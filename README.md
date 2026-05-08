@@ -1,98 +1,162 @@
-# EIF-4200-PID-II: Sistema Avanzado de Identificación Facial
+# EIF-4200 PID II - Sistema Avanzado de Identificacion Facial
 
-## Requisitos previos
+Proyecto practico para control de acceso con reconocimiento facial, MySQL, interfaz grafica y cifrado de datos sensibles.
 
-- [Anaconda](https://www.anaconda.com/download) instalado en el sistema.
-- Visual Studio Code instalado.
-- Extensión **Python** de Microsoft instalada en VS Code.
+## Estado Actual
 
----
+Ya existe:
 
-## 1. Crear el ambiente Conda 
+- `src/database.py`: conexion a MySQL, creacion de tablas, registro de empleados, registro de accesos y cifrado/descifrado de nombres con `cryptography.Fernet`.
+- `src/detector.py`: motor de reconocimiento facial. Carga rostros desde `data/known_faces`, compara contra video o imagen, dibuja cuadros verdes/rojos y registra eventos en la base de datos cuando recibe un `DatabaseManager`.
+- `src/utils.py`: funciones auxiliares para rutas, lectura de imagenes, extraccion del codigo de empleado y captura de rostros desconocidos.
+- `src/gui.py`: interfaz grafica y visualizacion del flujo de video.
+- `config.py`: credenciales de base de datos, correo y rutas principales.
 
-Abre una terminal (Anaconda Prompt o PowerShell) y ejecuta:
+Pendiente de integracion final:
+
+- Alertas sonoras y correo critico.
+- Conexion completa entre GUI, motor facial, base de datos y notificaciones.
+
+## 1. Crear Ambiente Conda
+
+Abre Anaconda Prompt o PowerShell y ejecuta:
 
 ```powershell
-conda create -n sistema_facial python=3.13.13
-```
-*(Puedes reemplazar `sistema_facial` por el nombre que prefieras para tu entorno).*
-
----
-
-## 2. Activar el ambiente
-
-**Opción A: Desde Anaconda Prompt / CMD**
-```powershell
-conda activate sistema_facial
+conda create -n PIDII_FACE python=3.10
+conda activate PIDII_FACE
 ```
 
-**Opción B: Desde PowerShell (en VS Code)**
-Si `conda` no se reconoce directamente en PowerShell, usa el hook de Anaconda:
-```powershell
-(C:\Users\<tu_usuario>\anaconda3\shell\condabin\conda-hook.ps1) ; conda activate sistema_facial
-```
-> *Nota: Reemplaza `<tu_usuario>` con tu nombre de usuario de Windows.* El prompt de tu terminal debe cambiar para mostrar el ambiente activo:
-```powershell
-(sistema_facial) PS C:\ruta\a\tu\proyecto\EIF-4200-PID-II>
-```
+Se recomienda Python 3.10 para evitar problemas de compatibilidad entre `dlib`, `face_recognition` y Windows.
 
----
+## 2. Seleccionar Interprete en VS Code
 
-## 3. Seleccionar el intérprete en VS Code
+1. Presiona `Ctrl+Shift+P`.
+2. Busca `Python: Select Interpreter`.
+3. Selecciona el ambiente `PIDII_FACE`.
 
-1. Presiona `Ctrl+Shift+P` dentro de VS Code.
-2. Escribe y selecciona **Python: Select Interpreter**.
-3. Elige el ambiente `conda: sistema_facial` en la lista.
+Si no aparece, usa:
 
-Si no aparece automáticamente, elige **Enter interpreter path...** y navega hasta:
 ```text
-C:\Users\<tu_usuario>\anaconda3\envs\sistema_facial\python.exe
+C:\Anaconda\envs\PIDII_FACE\python.exe
 ```
 
----
+## 3. Instalar Dependencias
 
-## 4. Instalación de Dependencias
-
-Con el ambiente activo en tu terminal, instalaremos todas las librerías necesarias del proyecto (Visión, Base de Datos, Interfaz y Cifrado) utilizando el archivo de requerimientos.
-
-Asegúrate de estar en la carpeta raíz del proyecto y ejecuta:
+Desde la carpeta raiz del proyecto:
 
 ```powershell
 pip install -r requirements.txt
 ```
-*(Este comando instalará automáticamente la versión precompilada de `dlib`, `opencv-python`, `face_recognition`, `mysql-connector-python`, `cryptography` y `Pillow`).*
 
-### Verificación de la instalación
-Para comprobar que los módulos críticos se instalaron correctamente, ejecuta este comando ajustando la ruta a tu usuario:
+Si `face_recognition` o `dlib` falla en Windows, instala primero desde conda-forge:
 
 ```powershell
-C:/Users/<tu_usuario>/anaconda3/envs/sistema_facial/python.exe -c "import cv2; import face_recognition; import mysql.connector; import cryptography; print(' ¡Todas las dependencias están OK!')"
+conda install -c conda-forge dlib face_recognition
+pip install -r requirements.txt
 ```
 
----
+Verificacion:
 
-## 5. Ejecución y Pruebas
+```powershell
+python -c "import cv2; import face_recognition; import mysql.connector; import cryptography; print('Dependencias OK')"
+```
 
-Para inicializar la base de datos y generar los datos de prueba, ejecuta el script principal de la base de datos:
+## 4. Preparar Carpetas
+
+Estructura esperada:
+
+```text
+data/
+  known_faces/    # Fotos de empleados autorizados
+  unknown_faces/  # Capturas de personas no reconocidas
+src/
+  database.py
+  detector.py
+  gui.py
+  notification.py
+  utils.py
+main.py
+config.py
+secret.key
+```
+
+Las fotos autorizadas deben guardarse en `data/known_faces/` usando el codigo de empleado al inicio del nombre:
+
+```text
+EMP001.jpg
+EMP002_maria.jpg
+EMP003-carlos.jpg
+```
+
+El detector toma `EMP001`, `EMP002` o `EMP003` como codigo y lo consulta en MySQL.
+
+## 5. Base de Datos
+
+El archivo `config.py` contiene la configuracion de MySQL:
+
+```python
+DB_CONFIG = {
+    "host": "...",
+    "user": "...",
+    "password": "...",
+    "database": "...",
+    "port": 3307,
+}
+```
+
+Para crear tablas y cargar datos de prueba:
 
 ```powershell
 python src/database.py
 ```
 
-### Ejemplo de uso (Registro de Empleados)
-Si deseas registrar un nuevo empleado desde otro módulo, la sintaxis a utilizar es la siguiente:
+Para probar un empleado especifico:
+
+```powershell
+python src/database.py EMP002
+```
+
+## 6. Probar Motor de Reconocimiento
+
+Ver codigos cargados desde `data/known_faces`:
+
+```powershell
+python -c "from src.detector import FaceRecognitionEngine; engine=FaceRecognitionEngine(); print(engine.known_codes)"
+```
+
+Probar contra una imagen:
 
 ```python
-from database import DatabaseManager
+from src.detector import FaceRecognitionEngine
+
+engine = FaceRecognitionEngine()
+matches = engine.recognize_image("ruta/a/imagen.jpg")
+for match in matches:
+    print(match)
+```
+
+Integracion con base de datos:
+
+```python
+from src.database import DatabaseManager
+from src.detector import FaceRecognitionEngine
 
 db = DatabaseManager()
 db.connect()
-db.registrar_nuevo_empleado("Nombre Empleado", "EMP004", "ruta/imagen.jpg")
+engine = FaceRecognitionEngine(db_manager=db)
 ```
 
----
+Cuando la GUI entregue frames de OpenCV, debe llamar:
 
-## ⚠️ Notas Importantes de Seguridad
+```python
+frame_anotado, resultados = engine.process_frame(frame_bgr)
+```
 
-- **Manejo de Claves:** El archivo `secret.key` se genera automáticamente en la raíz del proyecto la primera vez que se ejecuta el script de la base de datos. **NO lo elimines, modifiques ni lo subas a GitHub** (asegúrate de que esté en tu `.gitignore`). Esta es la llave simétrica para el cifrado AES.
-- **Pérdida de Claves:** Si borras o pierdes `secret.key` y la base de datos ya contiene registros cifrados, será matemáticamente imposible descifrar los nombres de los empleados. En ese escenario, la única solución será truncar (vaciar) las tablas en MySQL y volver a registrar a todo el personal.
+## Privacidad
+
+- Los nombres se cifran antes de guardarse en `tb_empleado.nombre`.
+- La aplicacion descifra el nombre solo cuando necesita mostrarlo.
+- La clave `secret.key` queda fuera de la base de datos.
+- No borres ni compartas `secret.key`.
+- Si se pierde `secret.key`, los nombres ya guardados no se podran descifrar.
+- Las capturas de desconocidos se guardan en `data/unknown_faces/` con nombre generado por fecha y hora.

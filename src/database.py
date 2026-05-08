@@ -1,21 +1,27 @@
 import mysql.connector
 from mysql.connector import Error
 from cryptography.fernet import Fernet
+from cryptography.fernet import InvalidToken
 import base64
 import hashlib
 from datetime import datetime
 import os
+import sys
+from pathlib import Path
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+from config import DB_CONFIG, SECRET_KEY_FILE
 
 class DatabaseManager:
-    def __init__(self, host='tebnhf.h.filess.io', user='bdPIDII_wrongpiece', password='FacialPID2', database='bdPIDII_wrongpiece', port=3307):
+    def __init__(self, host=None, user=None, password=None, database=None, port=None):
         """
         Inicializa la conexión con la base de datos
         """
-        self.host = host
-        self.user = user
-        self.password = password
-        self.database = database
-        self.port = port
+        self.host = host or DB_CONFIG['host']
+        self.user = user or DB_CONFIG['user']
+        self.password = password or DB_CONFIG['password']
+        self.database = database or DB_CONFIG['database']
+        self.port = port or DB_CONFIG['port']
         self.connection = None
         self.cursor = None
         self.cipher = self._load_or_create_key()
@@ -24,7 +30,7 @@ class DatabaseManager:
         """
         Carga o crea la clave de cifrado para proteger los datos
         """
-        key_file = 'secret.key'
+        key_file = SECRET_KEY_FILE
         
         if os.path.exists(key_file):
             with open(key_file, 'rb') as f:
@@ -50,7 +56,10 @@ class DatabaseManager:
         """
         if encrypted_data is None:
             return None
-        return self.cipher.decrypt(encrypted_data.encode()).decode()
+        try:
+            return self.cipher.decrypt(encrypted_data.encode()).decode()
+        except InvalidToken:
+            return None
     
     def connect(self):
         """
@@ -63,7 +72,9 @@ class DatabaseManager:
                 password=self.password,
                 database=self.database,
                 port=self.port,
-                use_pure=True
+                use_pure=DB_CONFIG.get('use_pure', True),
+                raise_on_warnings=DB_CONFIG.get('raise_on_warnings', True),
+                connect_timeout=DB_CONFIG.get('connect_timeout', 30)
             )
             self.cursor = self.connection.cursor(dictionary=True)
             print(" Conexión exitosa a la base de datos")
@@ -99,7 +110,7 @@ class DatabaseManager:
             """,
             """
             CREATE TABLE IF NOT EXISTS tb_registro_accesos (
-                registro_acceso_id INT PRIMARY KEY AUTO_INCREMENT,
+                registro_accesos_id INT PRIMARY KEY AUTO_INCREMENT,
                 empleado_id INT,
                 fecha_hora DATETIME NOT NULL,
                 estado_acceso ENUM('AUTORIZADO', 'NO_AUTORIZADO', 'INTENTO_FALLIDO') NOT NULL,
@@ -114,6 +125,8 @@ class DatabaseManager:
                 self.cursor.execute(query)
                 self.connection.commit()
             except Error as e:
+                if getattr(e, "errno", None) == 1050:
+                    continue
                 print(f"Error al crear tabla: {e}")
     
     def agregar_empleado(self, nombre, codigo_empleado, ruta_imagen):
@@ -297,7 +310,7 @@ class DatabaseManager:
         return stats
 
 # Función de prueba
-def probar_base_datos():
+def probar_base_datos(codigo_prueba="EMP001"):
     """
     Función para probar la conexión y operaciones de la base de datos
     """
@@ -320,7 +333,7 @@ def probar_base_datos():
         
         # Probar validación de acceso
         print("\n--- Probando validación de acceso ---")
-        autorizado, empleado, mensaje = db.validar_permiso_acceso("EMP001")
+        autorizado, empleado, mensaje = db.validar_permiso_acceso(codigo_prueba)
         print(mensaje)
         if empleado:
             print(f"Empleado: {empleado['nombre_descifrado']}")
@@ -344,4 +357,5 @@ def probar_base_datos():
         db.disconnect()
 
 if __name__ == "__main__":
-    probar_base_datos()
+    codigo = sys.argv[1] if len(sys.argv) > 1 else "EMP001"
+    probar_base_datos(codigo)
