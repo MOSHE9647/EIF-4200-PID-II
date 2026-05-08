@@ -20,13 +20,15 @@ SECRET_KEY_FILE = 'secret.key'
 # ============================================
 # Configuración de Alertas por Correo
 # ============================================
+# Ejemplo de configuración para Mailtrap en config.py
 EMAIL_CONFIG = {
-    'smtp_server': 'smtp.gmail.com',
-    'smtp_port': 587,
-    'sender_email': 'tu_correo@gmail.com',
-    'sender_password': 'tu_contraseña_o_app_password',
-    'security_email': 'seguridad@empresa.com'
+    'smtp_server': 'sandbox.smtp.mailtrap.io',
+    'smtp_port': 2525,
+    'sender_email': 'bf66228a5a479d', 
+    'sender_password': 'b05e3b6bf664f8',
+    'security_email': 'keyna.castro.fuentes@est.una.ac.cr'
 }
+
 
 # Rutas del sistema
 PATHS = {
